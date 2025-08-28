@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "PRODUTO", schema = "dbo")
+@Table(name = "PRODUTO")
 public class Produto {
     
     @Id
@@ -28,9 +28,6 @@ public class Produto {
     
     @Column(name = "VR_MAXIMO", precision = 18, scale = 2)
     private BigDecimal valorMaximo;
-    
-    // Constructors
-    public Produto() {}
     
     // Getters and Setters
     public Integer getCodigoProduto() {
