@@ -19,15 +19,18 @@ import java.util.Optional;
 
 @ApplicationScoped
 public class SimulacaoService {
+    private final ProdutoRepository produtoRepository;
+    private final SimulacaoRepository simulacaoRepository;
+    private final EventHubService eventHubService;
     
     @Inject
-    ProdutoRepository produtoRepository;
-    
-    @Inject
-    SimulacaoRepository simulacaoRepository;
-    
-    @Inject
-    EventHubService eventHubService;
+    public SimulacaoService(ProdutoRepository produtoRepository, 
+                           SimulacaoRepository simulacaoRepository,
+                           EventHubService eventHubService) {
+        this.produtoRepository = produtoRepository;
+        this.simulacaoRepository = simulacaoRepository;
+        this.eventHubService = eventHubService;
+    }
     
     @Transactional
     public SimulacaoResponse simularEmprestimo(SimulacaoRequest request) {

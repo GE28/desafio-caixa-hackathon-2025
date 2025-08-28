@@ -14,9 +14,12 @@ import br.gov.caixa.hackathon2025.service.SimulacaoService;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class SimulacaoResource {
+    private final SimulacaoService simulacaoService;
     
     @Inject
-    SimulacaoService simulacaoService;
+    public SimulacaoResource(SimulacaoService simulacaoService) {
+        this.simulacaoService = simulacaoService;
+    }
     
     @POST
     public Response simular(@Valid SimulacaoRequest request) {
