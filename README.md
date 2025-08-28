@@ -1,78 +1,258 @@
-# simulador-emprestimo
+# Simulador de Empréstimo - API
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+API para simulação de empréstimo com cálculo automático das modalidades SAC e PRICE, armazenamento das simulações e integração com Azure Event Hub.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+---
 
-## Running the application in dev mode
+## Índice
 
-You can run your application in dev mode that enables live coding using:
+- [Sobre o Projeto](#sobre-o-projeto)
+- [Tecnologias Utilizadas](#tecnologias-utilizadas)
+- [Como Executar](#como-executar)
+- [Endpoints da API](#endpoints-da-api)
+- [Exemplos de Uso](#exemplos-de-uso)
+- [Configuração Event Hub](#configuração-event-hub)
+- [Estrutura do Projeto](#estrutura-do-projeto)
+- [Testes](#testes)
 
-```shell script
+---
+
+## Sobre o Projeto
+
+Esta API permite realizar simulações de empréstimo com base em produtos financeiros pré-configurados, calculando automaticamente as parcelas utilizando os sistemas de amortização **SAC** (Sistema de Amortização Constante) e **PRICE** (Tabela Price).
+
+**Funcionalidades principais:**
+- Simulação automática com ambos os sistemas de amortização
+- Validação de produtos financeiros baseada em valor e prazo
+- Armazenamento das simulações em banco de dados H2
+- Envio assíncrono para Azure Event Hub
+- Relatórios de volume de simulações
+- Telemetria de performance da API
+
+---
+
+## Tecnologias Utilizadas
+
+- **Java 21**
+- **Quarkus Framework** (Supersonic Subatomic Java Framework)
+- **Hibernate ORM with Panache** (Persistência de dados)
+- **H2 Database** (Banco em memória para desenvolvimento)
+- **Azure Event Hubs** (Mensageria para integração)
+- **Jackson** (Serialização JSON)
+- **OpenAPI/Swagger** (Documentação da API)
+- **Maven** (Gerenciamento de dependências)
+
+---
+
+## Como Executar
+
+### Pré-requisitos
+- Java 21+
+- Maven 3.8+
+
+### Execução Local
+
+1. **Clone o projeto:**
+```bash
+git clone <repository-url>
+cd simulador-emprestimo
+```
+
+2. **Execute em modo de desenvolvimento:**
+```bash
 ./mvnw quarkus:dev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+3. **Acesse a aplicação:**
+- API Base: http://localhost:8080
+- Swagger UI: http://localhost:8080/swagger-ui
+- Dev UI: http://localhost:8080/q/dev
 
-## Packaging and running the application
+### Execução com Package
 
-The application can be packaged using:
-
-```shell script
+```bash
+# Gerar o JAR
 ./mvnw package
+
+# Executar
+java -jar target/quarkus-app/quarkus-run.jar
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+---
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+## Endpoints da API
 
-If you want to build an _über-jar_, execute the following command:
+### Simulações
 
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+| Método | Endpoint                    | Descrição                                    |
+|--------|-----------------------------|----------------------------------------------|
+| POST   | `/simulacao`                | Realiza nova simulação de empréstimo        |
+| GET    | `/simulacao`                | Lista simulações com paginação              |
+
+### Relatórios
+
+| Método | Endpoint                           | Descrição                                    |
+|--------|------------------------------------|----------------------------------------------|
+| GET    | `/relatorios/volume/{data}`        | Volume de simulações por data específica    |
+| GET    | `/relatorios/volume/agrupadas`     | Volumes agrupados por data                   |
+
+### Telemetria
+
+| Método | Endpoint                    | Descrição                                    |
+|--------|-----------------------------|----------------------------------------------|
+| GET    | `/telemetria`               | Estatísticas de performance da API           |
+| GET    | `/telemetria/{data}`        | Telemetria por data específica               |
+
+---
+
+## Exemplos de Uso
+
+### Realizar Simulação
+
+**POST** `/simulacao`
+
+```json
+{
+  "valorDesejado": 50000.00,
+  "prazo": 24
+}
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+**Resposta:**
+```json
+{
+  "idSimulacao": 1,
+  "codigoProduto": 1,
+  "descricaoProduto": "Empréstimo Pessoal",
+  "taxaJuros": 1.50,
+  "resultadoSimulacao": [
+    {
+      "tipo": "SAC",
+      "parcelas": [
+        {
+          "numero": 1,
+          "valorAmortizacao": 2083.33,
+          "valorJuros": 750.00,
+          "valorPrestacao": 2833.33
+        }
+      ]
+    },
+    {
+      "tipo": "PRICE",
+      "parcelas": [
+        {
+          "numero": 1,
+          "valorAmortizacao": 1897.67,
+          "valorJuros": 750.00,
+          "valorPrestacao": 2647.67
+        }
+      ]
+    }
+  ]
+}
+```
 
-## Creating a native executable
+### Listar Simulações
 
-You can create a native executable using:
+**GET** `/simulacao?pagina=1&tamanho=10`
 
-```shell script
+```json
+{
+  "pagina": 1,
+  "qtdRegistros": 150,
+  "qtdRegistrosPagina": 10,
+  "registros": [
+    {
+      "idSimulacao": 1,
+      "valorDesejado": 50000.00,
+      "prazo": 24,
+      "valorTotalParcelas": 68000.00
+    }
+  ]
+}
+```
+
+---
+
+## Configuração Event Hub
+
+A aplicação integra com Azure Event Hub para envio assíncrono das simulações. Configure as variáveis de ambiente:
+
+```properties
+# application.properties
+eventhub.connection-string=${EVENTHUB_CONNECTION_STRING}
+eventhub.entity-path=${EVENTHUB_ENTITY_PATH:simulacoes}
+```
+
+**Variáveis de ambiente:**
+```bash
+# Linux/Mac
+export EVENTHUB_CONNECTION_STRING="Endpoint=sb://..."
+export EVENTHUB_ENTITY_PATH="simulacoes"
+
+# Windows PowerShell
+$env:EVENTHUB_CONNECTION_STRING="Endpoint=sb://..."
+$env:EVENTHUB_ENTITY_PATH="simulacoes"
+```
+
+> **Nota:** A aplicação funciona normalmente mesmo sem o Azure Event Hub configurado.
+
+---
+
+## Estrutura do Projeto
+
+```
+src/
+├── main/java/br/gov/caixa/hackathon2025/
+│   ├── resource/          # Controllers REST
+│   ├── service/           # Lógica de negócio
+│   ├── dto/              # Objetos de transferência
+│   ├── entity/           # Entidades JPA
+│   ├── repository/       # Repositórios de dados
+│   ├── config/           # Configurações
+│   └── exception/        # Tratamento de erros
+└── test/                 # Testes automatizados
+```
+
+---
+
+## Testes
+
+Execute os testes automatizados:
+
+```bash
+# Todos os testes
+./mvnw test
+
+# Testes específicos
+./mvnw test -Dtest=SimulacaoResourceTest
+```
+
+**Coverage dos testes:**
+- Testes de integração dos endpoints
+- Testes unitários dos cálculos SAC e PRICE
+- Validação de regras de negócio
+
+---
+
+## Documentação Adicional
+
+- [Exemplos detalhados da API](SWAGGER_EXAMPLES.md)
+- [Configuração do Event Hub](EVENTHUB.md)
+- [Instruções do Hackathon](hackaton_instrucoes_2025.md)
+
+---
+
+## Desenvolvimento
+
+**Executar em modo desenvolvimento:**
+```bash
+./mvnw quarkus:dev
+```
+
+**Gerar executável nativo:**
+```bash
 ./mvnw package -Dnative
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/simulador-emprestimo-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- REST ([guide](https://quarkus.io/guides/rest)): A Jakarta REST implementation utilizing build time processing and Vert.x. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it.
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-- Hibernate ORM with Panache ([guide](https://quarkus.io/guides/hibernate-orm-panache)): Simplify your persistence code for Hibernate ORM via the active record or the repository pattern
-- JDBC Driver - PostgreSQL ([guide](https://quarkus.io/guides/datasource)): Connect to the PostgreSQL database via JDBC
-
-## Provided Code
-
-### Hibernate ORM
-
-Create your first JPA entity
-
-[Related guide section...](https://quarkus.io/guides/hibernate-orm)
-
-[Related Hibernate with Panache section...](https://quarkus.io/guides/hibernate-orm-panache)
-
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+Para mais informações sobre Quarkus: https://quarkus.io/

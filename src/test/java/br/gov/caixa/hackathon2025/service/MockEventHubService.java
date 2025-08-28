@@ -6,6 +6,8 @@ import br.gov.caixa.hackathon2025.dto.SimulacaoResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.CompletableFuture;
+
 @Mock
 @ApplicationScoped
 public class MockEventHubService extends EventHubService {
@@ -17,8 +19,9 @@ public class MockEventHubService extends EventHubService {
     }
     
     @Override
-    public void enviarSimulacao(SimulacaoResponse simulacao) {
+    public CompletableFuture<Void> enviarSimulacao(SimulacaoResponse simulacao) {
         log.info("Mock: Simulação enviada para EventHub - ID: {}", simulacao.getIdSimulacao());
         // Mock implementation - apenas log da simulação para testes
+        return CompletableFuture.completedFuture(null);
     }
 }

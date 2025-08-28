@@ -16,6 +16,8 @@ import br.gov.caixa.hackathon2025.repository.SimulacaoRepository;
 import br.gov.caixa.hackathon2025.service.emprestimo.CalculadorEmprestimo;
 import br.gov.caixa.hackathon2025.service.emprestimo.CalculadorPrice;
 import br.gov.caixa.hackathon2025.service.emprestimo.CalculadorSac;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -24,6 +26,8 @@ import java.util.Optional;
 
 @ApplicationScoped
 public class SimulacaoService {
+    private static final Logger log = LoggerFactory.getLogger(SimulacaoService.class);
+    
     private final ProdutoRepository produtoRepository;
     private final SimulacaoRepository simulacaoRepository;
     private final EventHubService eventHubService;
@@ -99,8 +103,15 @@ public class SimulacaoService {
             resultados.add(new ResultadoSimulacaoDto("PRICE", parcelasPrice));
             response.setResultadoSimulacao(resultados);
             
-            // TODO: EventHub (assíncrono)
-            eventHubService.enviarSimulacao(response);
+            // EventHub (assíncrono) - fire and forget
+            eventHubService.enviarSimulacao(response)
+                .whenComplete((result, throwable) -> {
+                    if (throwable != null) {
+                        log.warn("Erro ao enviar simulação para EventHub: {}", throwable.getMessage());
+                    } else {
+                        log.debug("Simulação enviada para EventHub com sucesso - ID: {}", response.getIdSimulacao());
+                    }
+                });
             
             return response;
             
