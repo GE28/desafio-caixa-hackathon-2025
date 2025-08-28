@@ -2,6 +2,7 @@ package br.gov.caixa.hackathon2025.service.emprestimo;
 
 import io.quarkus.test.junit.QuarkusTest;
 import br.gov.caixa.hackathon2025.dto.ParcelaDto;
+import br.gov.caixa.hackathon2025.exception.CalculoException;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -428,7 +429,7 @@ class CalculadorEmprestimoTest {
         BigDecimal valorNegativo = new BigDecimal("-1000.00");
         BigDecimal taxaPositiva = new BigDecimal("0.02");
         
-        CalculadorSac calculadorSac = new CalculadorSac(valorNegativo, taxaPositiva, 5);
+        CalculadorSac calculadorSac = new CalculadorSac(valorNegativo, taxaPositiva, 5, true);
         List<ParcelaDto> parcelas = calculadorSac.calcularParcelas();
         
         assertEquals(5, parcelas.size());
@@ -483,5 +484,77 @@ class CalculadorEmprestimoTest {
         );
         assertEquals(parcelaSac.getValorJuros(), parcelaPrice.getValorJuros());
         assertEquals(parcelaSac.getValorPrestacao(), parcelaPrice.getValorPrestacao());
+    }
+
+    @Test
+    void testExcecaoValorEmprestimoNulo() {
+        assertThrows(CalculoException.class, () -> {
+            new CalculadorSac(null, new BigDecimal("0.02"), 12);
+        }, "Deve lançar exceção para valor de empréstimo nulo");
+    }
+
+    @Test
+    void testExcecaoValorEmprestimoZero() {
+        assertThrows(CalculoException.class, () -> {
+            new CalculadorSac(BigDecimal.ZERO, new BigDecimal("0.02"), 12);
+        }, "Deve lançar exceção para valor de empréstimo zero");
+    }
+
+    @Test
+    void testExcecaoValorEmprestimoNegativo() {
+        assertThrows(CalculoException.class, () -> {
+            new CalculadorSac(new BigDecimal("-1000"), new BigDecimal("0.02"), 12);
+        }, "Deve lançar exceção para valor de empréstimo negativo");
+    }
+
+    @Test
+    void testExcecaoTaxaJurosNula() {
+        assertThrows(CalculoException.class, () -> {
+            new CalculadorPrice(new BigDecimal("1000"), null, 12);
+        }, "Deve lançar exceção para taxa de juros nula");
+    }
+
+    @Test
+    void testExcecaoTaxaJurosNegativa() {
+        assertThrows(CalculoException.class, () -> {
+            new CalculadorPrice(new BigDecimal("1000"), new BigDecimal("-0.01"), 12);
+        }, "Deve lançar exceção para taxa de juros negativa");
+    }
+
+    @Test
+    void testExcecaoNumeroParcelasNulo() {
+        assertThrows(CalculoException.class, () -> {
+            new CalculadorSac(new BigDecimal("1000"), new BigDecimal("0.02"), null);
+        }, "Deve lançar exceção para número de parcelas nulo");
+    }
+
+    @Test
+    void testExcecaoNumeroParcelasZero() {
+        assertThrows(CalculoException.class, () -> {
+            new CalculadorSac(new BigDecimal("1000"), new BigDecimal("0.02"), 0);
+        }, "Deve lançar exceção para número de parcelas zero");
+    }
+
+    @Test
+    void testExcecaoNumeroParcelasNegativo() {
+        assertThrows(CalculoException.class, () -> {
+            new CalculadorPrice(new BigDecimal("1000"), new BigDecimal("0.02"), -5);
+        }, "Deve lançar exceção para número de parcelas negativo");
+    }
+
+    @Test
+    void testExcecaoValorNuloArredondamento() {
+        CalculadorSac calculador = new CalculadorSac(new BigDecimal("1000"), new BigDecimal("0.02"), 12);
+        assertThrows(CalculoException.class, () -> {
+            calculador.arredondar(null);
+        }, "Deve lançar exceção ao tentar arredondar valor nulo");
+    }
+
+    @Test
+    void testMecanismoNaoAfetaValidacaoParcelasPositivas() {
+        // Mesmo com valores negativos habilitados, parcelas devem ser > 0
+        assertThrows(CalculoException.class, () -> {
+            new CalculadorSac(new BigDecimal("1000"), new BigDecimal("0.02"), 0, true);
+        }, "Validação de parcelas > 0 deve permanecer ativa");
     }
 }
