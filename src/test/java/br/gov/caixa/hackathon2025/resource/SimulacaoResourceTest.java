@@ -9,10 +9,9 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 
 @QuarkusTest
-public class SimulacaoResourceTest {
-    
+class SimulacaoResourceTest {
     @Test
-    public void testSimulacaoEmprestimoValido() {
+    void testSimulacaoEmprestimoValido() {
         String requestBody = """
             {
                 "valorDesejado": 900.00,
@@ -39,7 +38,7 @@ public class SimulacaoResourceTest {
     }
     
     @Test
-    public void testSimulacaoComValorInvalido() {
+    void testSimulacaoComValorInvalido() {
         String requestBody = """
             {
                 "valorDesejado": -100.00,
@@ -57,7 +56,7 @@ public class SimulacaoResourceTest {
     }
     
     @Test
-    public void testSimulacaoComPrazoInvalido() {
+    void testSimulacaoComPrazoInvalido() {
         String requestBody = """
             {
                 "valorDesejado": 900.00,
@@ -75,11 +74,11 @@ public class SimulacaoResourceTest {
     }
     
     @Test
-    public void testSimulacaoSemProdutoCompativel() {
+    void testSimulacaoSemProdutoCompativel() {
         String requestBody = """
             {
-                "valorDesejado": 50000000.00,
-                "prazo": 1000
+                "valorDesejado": 0.0001,
+                "prazo": 1
             }
             """;
         
@@ -93,7 +92,7 @@ public class SimulacaoResourceTest {
     }
     
     @Test
-    public void testListarSimulacoes() {
+    void testListarSimulacoes() {
         given()
             .when()
             .get("/simulacao")

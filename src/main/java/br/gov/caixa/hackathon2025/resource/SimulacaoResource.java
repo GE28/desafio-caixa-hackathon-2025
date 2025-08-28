@@ -23,31 +23,15 @@ public class SimulacaoResource {
     
     @POST
     public Response simular(@Valid SimulacaoRequest request) {
-        try {
-            SimulacaoResponse response = simulacaoService.simularEmprestimo(request);
-            return Response.ok(response).build();
-        } catch (IllegalArgumentException e) {
-            return Response.status(Response.Status.NOT_FOUND)
-                .entity("{\"erro\": \"" + e.getMessage() + "\"}")
-                .build();
-        } catch (Exception e) {
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity("{\"erro\": \"Erro interno do servidor\"}")
-                .build();
-        }
+        SimulacaoResponse response = simulacaoService.simularEmprestimo(request);
+        return Response.ok(response).build();
     }
 
     @GET
     public Response listar(
         @QueryParam("pagina") @DefaultValue("1") Integer pagina,
         @QueryParam("tamanho") @DefaultValue("200") Integer tamanho) {
-        try {
-            ListaSimulacaoResponse response = simulacaoService.listarSimulacoes(pagina, tamanho);
-            return Response.ok(response).build();
-        } catch (Exception e) {
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity("{\"erro\": \"Erro interno do servidor\"}")
-                .build();
-        }
+        ListaSimulacaoResponse response = simulacaoService.listarSimulacoes(pagina, tamanho);
+        return Response.ok(response).build();
     }
 }

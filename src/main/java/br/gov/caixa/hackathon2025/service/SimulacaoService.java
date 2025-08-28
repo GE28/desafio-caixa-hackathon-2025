@@ -6,6 +6,11 @@ import jakarta.transaction.Transactional;
 import br.gov.caixa.hackathon2025.dto.*;
 import br.gov.caixa.hackathon2025.entity.Produto;
 import br.gov.caixa.hackathon2025.entity.Simulacao;
+import br.gov.caixa.hackathon2025.exception.BaseException;
+import br.gov.caixa.hackathon2025.exception.EntradaInvalidaException;
+import br.gov.caixa.hackathon2025.exception.CalculoException;
+import br.gov.caixa.hackathon2025.exception.ConsultaInvalidaException;
+import br.gov.caixa.hackathon2025.exception.ProdutoNaoEncontradoException;
 import br.gov.caixa.hackathon2025.repository.ProdutoRepository;
 import br.gov.caixa.hackathon2025.repository.SimulacaoRepository;
 import br.gov.caixa.hackathon2025.service.emprestimo.CalculadorEmprestimo;
@@ -36,67 +41,108 @@ public class SimulacaoService {
     public SimulacaoResponse simularEmprestimo(SimulacaoRequest request) {
         long inicioTempo = System.currentTimeMillis();
         
-        // Buscar produto válido
+        validarParametrosSimulacao(request);
+        
         Optional<Produto> produtoOpt = produtoRepository.findProdutoValido(request.getValorDesejado(), request.getPrazo());
         
         if (produtoOpt.isEmpty()) {
-            throw new IllegalArgumentException("Nenhum produto encontrado para os parâmetros informados");
+            throw new ProdutoNaoEncontradoException("Nenhum produto encontrado para os parâmetros informados: valor=" +
+                request.getValorDesejado() + ", prazo=" + request.getPrazo() + " meses");
         }
         
         Produto produto = produtoOpt.get();
         
-        // Criar calculadoras SAC e PRICE
-        CalculadorEmprestimo calculadorSac = new CalculadorSac(
-            request.getValorDesejado(), 
-            produto.getPercentualTaxaJuros(), 
-            request.getPrazo()
-        );
+        try {
+            // Criar calculadoras SAC e PRICE
+            CalculadorEmprestimo calculadorSac = new CalculadorSac(
+                request.getValorDesejado(), 
+                produto.getPercentualTaxaJuros(), 
+                request.getPrazo()
+            );
+            
+            CalculadorEmprestimo calculadorPrice = new CalculadorPrice(
+                request.getValorDesejado(), 
+                produto.getPercentualTaxaJuros(), 
+                request.getPrazo()
+            );
+            
+            List<ParcelaDto> parcelasSac = calculadorSac.calcularParcelas();
+            List<ParcelaDto> parcelasPrice = calculadorPrice.calcularParcelas();
+            
+            if (parcelasSac.isEmpty() || parcelasPrice.isEmpty()) {
+                throw new CalculoException("Erro ao calcular as parcelas do empréstimo");
+            }
+            
+            BigDecimal valorTotalParcelas = parcelasSac.stream()
+                .map(ParcelaDto::getValorPrestacao)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            // Persistir simulação
+            Simulacao simulacao = new Simulacao();
+            simulacao.setCodigoProduto(produto.getCodigoProduto());
+            simulacao.setValorDesejado(request.getValorDesejado());
+            simulacao.setPrazo(request.getPrazo());
+            simulacao.setTaxaJuros(produto.getPercentualTaxaJuros());
+            simulacao.setValorTotalParcelas(valorTotalParcelas);
+            simulacao.setTempoRespostaMilissegundos(System.currentTimeMillis() - inicioTempo);
+            
+            simulacaoRepository.persist(simulacao);
+            
+            SimulacaoResponse response = new SimulacaoResponse();
+            response.setIdSimulacao(simulacao.getIdSimulacao());
+            response.setCodigoProduto(produto.getCodigoProduto());
+            response.setDescricaoProduto(produto.getNomeProduto());
+            response.setTaxaJuros(produto.getPercentualTaxaJuros());
+            
+            List<ResultadoSimulacaoDto> resultados = new ArrayList<>();
+            resultados.add(new ResultadoSimulacaoDto("SAC", parcelasSac));
+            resultados.add(new ResultadoSimulacaoDto("PRICE", parcelasPrice));
+            response.setResultadoSimulacao(resultados);
+            
+            // TODO: EventHub (assíncrono)
+            eventHubService.enviarSimulacao(response);
+            
+            return response;
+            
+        } catch (Exception e) {
+            if (e instanceof BaseException) {
+                throw e;
+            }
+            throw new CalculoException("Erro interno ao processar a simulação: " + e.getMessage(), e);
+        }
+    }
+    
+    private void validarParametrosSimulacao(SimulacaoRequest request) {
+        if (request.getValorDesejado() == null || request.getValorDesejado().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new EntradaInvalidaException("Valor desejado deve ser maior que zero");
+        }
         
-        CalculadorEmprestimo calculadorPrice = new CalculadorPrice(
-            request.getValorDesejado(), 
-            produto.getPercentualTaxaJuros(), 
-            request.getPrazo()
-        );
+        if (request.getPrazo() == null || request.getPrazo() <= 0) {
+            throw new EntradaInvalidaException("Prazo deve ser maior que zero");
+        }
         
-        // Calcular parcelas
-        List<ParcelaDto> parcelasSac = calculadorSac.calcularParcelas();
-        List<ParcelaDto> parcelasPrice = calculadorPrice.calcularParcelas();
+        if (request.getValorDesejado().compareTo(new BigDecimal("999999999999999")) > 0) {
+            throw new EntradaInvalidaException("Valor desejado não pode ser superior a R$ 999.999.999.999.999,00");
+        }
         
-        // Calcular valor total das parcelas (usando SAC como base)
-        BigDecimal valorTotalParcelas = parcelasSac.stream()
-            .map(ParcelaDto::getValorPrestacao)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        // Persistir simulação
-        Simulacao simulacao = new Simulacao();
-        simulacao.setCodigoProduto(produto.getCodigoProduto());
-        simulacao.setValorDesejado(request.getValorDesejado());
-        simulacao.setPrazo(request.getPrazo());
-        simulacao.setTaxaJuros(produto.getPercentualTaxaJuros());
-        simulacao.setValorTotalParcelas(valorTotalParcelas);
-        simulacao.setTempoRespostaMilissegundos(System.currentTimeMillis() - inicioTempo);
-        
-        simulacaoRepository.persist(simulacao);
-        
-        // Criar response
-        SimulacaoResponse response = new SimulacaoResponse();
-        response.setIdSimulacao(simulacao.getIdSimulacao());
-        response.setCodigoProduto(produto.getCodigoProduto());
-        response.setDescricaoProduto(produto.getNomeProduto());
-        response.setTaxaJuros(produto.getPercentualTaxaJuros());
-        
-        List<ResultadoSimulacaoDto> resultados = new ArrayList<>();
-        resultados.add(new ResultadoSimulacaoDto("SAC", parcelasSac));
-        resultados.add(new ResultadoSimulacaoDto("PRICE", parcelasPrice));
-        response.setResultadoSimulacao(resultados);
-        
-        // Enviar para EventHub (assíncrono)
-        eventHubService.enviarSimulacao(response);
-        
-        return response;
+        if (request.getPrazo() > 480) {
+            throw new EntradaInvalidaException("Prazo não pode ser superior a 480 meses");
+        }
     }
     
     public ListaSimulacaoResponse listarSimulacoes(Integer pagina, Integer tamanho) {
+        if (pagina != null && pagina < 1) {
+            throw new ConsultaInvalidaException("Número da página deve ser maior que zero");
+        }
+
+        if (tamanho != null && tamanho < 1) {
+            throw new ConsultaInvalidaException("Tamanho da página deve ser maior que zero");
+        }
+        
+        if (tamanho != null && tamanho > 1000) {
+            throw new ConsultaInvalidaException("Tamanho da página não pode ser superior a 1000 registros");
+        }
+        
         if (pagina == null || pagina < 1) pagina = 1;
         if (tamanho == null || tamanho < 1) tamanho = 200;
         
