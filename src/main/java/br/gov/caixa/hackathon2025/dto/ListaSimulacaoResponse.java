@@ -18,9 +18,6 @@ public class ListaSimulacaoResponse {
     @JsonProperty("registros")
     private List<SimulacaoResumo> registros;
     
-    // Constructors
-    public ListaSimulacaoResponse() {}
-    
     // Getters and Setters
     public Integer getPagina() {
         return pagina;

@@ -21,9 +21,6 @@ public class SimulacaoResponse {
     @JsonProperty("resultadoSimulacao")
     private List<ResultadoSimulacaoDto> resultadoSimulacao;
     
-    // Constructors
-    public SimulacaoResponse() {}
-    
     // Getters and Setters
     public Long getIdSimulacao() {
         return idSimulacao;
