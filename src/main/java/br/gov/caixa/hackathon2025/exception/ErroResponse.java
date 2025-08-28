@@ -3,24 +3,30 @@ package br.gov.caixa.hackathon2025.exception;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 
 /** Classe padrão para respostas de erro da API. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Resposta de erro padrão da API")
 public class ErroResponse {
     
     @JsonProperty("status")
+    @Schema(description = "Código de status HTTP", example = "400")
     private int status;
     
     @JsonProperty("mensagem")
+    @Schema(description = "Mensagem de erro", example = "Valor desejado é obrigatório")
     private String mensagem;
     
     @JsonProperty("timestamp")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @Schema(description = "Timestamp do erro", example = "2025-01-15T10:30:45")
     private LocalDateTime timestamp;
     
     @JsonProperty("path")
+    @Schema(description = "Path da requisição que gerou o erro", example = "/simulacao")
     private String path;
 
     public ErroResponse() {

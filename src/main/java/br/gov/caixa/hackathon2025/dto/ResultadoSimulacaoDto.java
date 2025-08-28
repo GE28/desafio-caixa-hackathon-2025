@@ -1,14 +1,18 @@
 package br.gov.caixa.hackathon2025.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import java.util.List;
 
+@Schema(description = "Resultado da simulação por tipo de amortização")
 public class ResultadoSimulacaoDto {
     
     @JsonProperty("tipo")
+    @Schema(description = "Tipo de amortização", example = "SAC")
     private String tipo;
     
     @JsonProperty("parcelas")
+    @Schema(description = "Lista de parcelas calculadas")
     private List<ParcelaDto> parcelas;
     
     // Constructors
